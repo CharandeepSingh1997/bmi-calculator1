@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>BMI Calculator</title>
+    <style>
+        /* Your CSS styles go here */
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        h1 {
+            background-color: #007BFF;
+            color: white;
+            padding: 10px;
+            text-align: center;
+        }
+
+        form {
+            margin: 20px;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-shadow: 2px 2px 5px #888888;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+        }
+
+        input[type="text"],
+        input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        h2 {
+            margin: 20px;
+        }
+
+        #result {
+            margin: 20px;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-shadow: 2px 2px 5px #888888;
+        }
+
+        #usersList {
+            margin: 20px;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-shadow: 2px 2px 5px #888888;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        li {
+            cursor: pointer;
+            margin: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>BMI Calculator</h1>
+    <form id="bmiForm">
+        <label for="name">Name:</label>
+        <input type="text" id="name" required><br><br>
+
+        <label for="height">Height (meters):</label>
+        <input type="number" id="height" step="0.01" required><br><br>
+
+        <label for="weight">Weight (kg):</label>
+        <input type="number" id="weight" step="0.01" required><br><br>
+
+        <button type="submit">Calculate BMI</button>
+    </form>
+
+    <h2>Result</h2>
+    <div id="result">
+        <p><strong>Name:</strong> <span id="nameResult"></span></p>
+        <p><strong>Height:</strong> <span id="heightResult"></span> m</p>
+        <p><strong>Weight:</strong> <span id="weightResult"></span> kg</p>
+        <p><strong>BMI:</strong> <span id="bmiResult"></span></p>
+        <p><strong>Status:</strong> <span id="statusResult"></span></p>
+        <p><strong>Message:</strong> <span id="messageResult"></span></p>
+    </div>
+    <h2>Users List</h2>
+    <div id="usersList"></div>
+
+    <script>
+        const form = document.getElementById('bmiForm');
+        const resultDiv = document.getElementById('result');
+        const usersListDiv = document.getElementById('usersList');
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const name = document.getElementById('name').value;
+            const height = parseFloat(document.getElementById('height').value);
+            const weight = parseFloat(document.getElementById('weight').value);
+
+            if (isNaN(height) || isNaN(weight)) {
+                alert('Please enter valid numeric values for height and weight.');
+                return;
+            }
+
+            const bmi = (weight / (height * height)).toFixed(2);
+            let status = '';
+            let message = '';
+
+            if (bmi < 18.5) {
+                status = 'Underweight';
+                message = 'You should eat a little more.';
+            } else if (bmi >= 18.5 && bmi <= 24.9) {
+                status = 'Normal';
+                message = 'Keep doing what you are doing.';
+            } else if (bmi >= 25 && bmi <= 29.9) {
+                status = 'Overweight';
+                message = 'You should cut a little bit of weight.';
+            } else {
+                status = 'Obese';
+                message = 'You should really do something.';
+            }
+
+            // Save data to the server/database
+            const data = {
+                name,
+                height,
+                weight,
+                bmi,
+                status,
+                message,
+            };
+
+            // Send a POST request to the server to save the data as JSON
+            try {
+                const response = await fetch('/calculate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data),
+                });
+
+                if (response.status === 200) {
+                    // Display the result on the page
+                    displayResult(data);
+                    fetchUsersList(); // Refresh the user list
+                } else {
+                    alert('Failed to calculate BMI. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error saving data to the server:', error);
+                alert('Failed to save data to the server. Please try again.');
+            }
+        });
+
+        // Function to display the result on the page
+        function displayResult(data) {
+            resultDiv.style.display = 'block'; // Display the result div
+            document.getElementById('nameResult').textContent = data.name;
+            document.getElementById('heightResult').textContent = data.height;
+            document.getElementById('weightResult').textContent = data.weight;
+            document.getElementById('bmiResult').textContent = data.bmi;
+            document.getElementById('statusResult').textContent = data.status;
+            document.getElementById('messageResult').textContent = data.message;
+        }
+
+        // Function to fetch and display the list of users
+        async function fetchUsersList() {
+            try {
+                const response = await fetch('/users');
+                const userList = await response.json();
+
+                usersListDiv.innerHTML = '';
+                if (userList.length === 0) {
+                    usersListDiv.innerHTML = '<p>No users have entered their details yet.</p>';
+                } else {
+                    const listItems = userList.map((user) => `<li>${user}</li>`).join('');
+                    usersListDiv.innerHTML = `<ul>${listItems}</ul>`;
+
+                    // Add a click event listener to each user list item
+                    const userItems = usersListDiv.querySelectorAll('li');
+                    userItems.forEach((userItem) => {
+                        userItem.addEventListener('click', async () => {
+                            const userName = userItem.textContent;
+                            const userResponse = await fetch(`/user-stats/${userName}`);
+                            const userData = await userResponse.json();
+                            if (userData.length > 0) {
+                                displayResult(userData[0]);
+                            }
+                        });
+                    });
+                }
+            } catch (error) {
+                console.error('Error fetching users list:', error);
+            }
+        }
+
+        fetchUsersList(); // Fetch and display the list of users when the page loads
+    </script>
+</body>
+
+</html>
